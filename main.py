@@ -14,7 +14,7 @@ class posArray:
         self.x = [];
         self.y = [];
         self.t = [];
-
+                 
 class dataArray:
     def __init__(self):
         self.data = [];
@@ -95,16 +95,19 @@ class UGVToolingBenchWindow(QMainWindow):
         self.setWindowTitle("UGV Dashboard");
         self.__main = QWidget();
         self.setCentralWidget(self.__main);
+        self.setStyleSheet(open('stylesheet.css').read());
 
         self.connectButton = QPushButton();
         self.connectButton.clicked.connect(self.startConnection);
         self.connectionActive = False;
 
         self.title = QLabel("UGV Dashboard");
+        self.title.setObjectName("Title");
         
         self.UGVData = UGVData();
 
         self.tabs = QTabWidget();
+        self.tabs.setObjectName("MainTab")
         self.tabs.addTab(PathTab(self), "Path");
 
         self.motorPage = QWidget();
@@ -172,21 +175,22 @@ class PathTab(QWidget):
 
         parent.connectButton.setText("Connect");
 
-        self.actPen = pg.mkPen(color=(255,0,0));
-        self.expPen = pg.mkPen(color=(0,255,0));
+        self.actPen = pg.mkPen(color=(255,0,0), width=5);
+        self.expPen = pg.mkPen(color=(0,0,255), width=5);
 
         self.posPlot = pg.PlotWidget();
-        self.posPlot.setBackground('w');
+        self.posPlot.setBackground("#435058");
 
         self.posActCurve = self.posPlot.plot(parent.UGVData.posAct.x, parent.UGVData.posAct.y, pen=self.actPen);
         self.posExpCurve = self.posPlot.plot(parent.UGVData.posExp.x, parent.UGVData.posExp.y, pen=self.expPen);
 
         self.posErrorCloud = pg.PlotWidget();
-        self.posErrorCloud.setBackground('w');
+        self.posErrorCloud.setBackground("#435058");
 
         self.posErrorPoints = self.posErrorCloud.plot(parent.UGVData.posError.x, parent.UGVData.posError.y, pen=None, symbol="o", symbolPen=self.actPen, symbolSize=2);
 
         self.plotTabs = QTabWidget();
+        self.plotTabs.setObjectName("SubPageTabs")
         self.plotTabs.addTab(self.posPlot, "UGV Position Path");
         self.plotTabs.addTab(self.posErrorCloud, "UGV Position Cloud");
 
@@ -196,19 +200,24 @@ class PathTab(QWidget):
         self.lLayout.addWidget(self.clearDataButton);
 
         self.vPlot = pg.PlotWidget();
-        self.vPlot.setBackground('w');
+        self.vPlot.setBackground("#435058");
         self.vActCurve = self.vPlot.plot(parent.UGVData.vAct.t, parent.UGVData.vAct.data, pen=self.actPen);
         self.vExpCurve = self.vPlot.plot(parent.UGVData.vExp.t, parent.UGVData.vExp.data, pen=self.expPen);
 
         self.headPlot = pg.PlotWidget();
-        self.headPlot.setBackground('w');
+        self.headPlot.setBackground("#435058");
         self.headActCurve = self.headPlot.plot(parent.UGVData.headAct.t, parent.UGVData.headAct.data, pen=self.actPen);
         self.headExpCurve = self.headPlot.plot(parent.UGVData.headExp.t, parent.UGVData.headExp.data, pen=self.expPen);
 
+        vHeader = QLabel("Velocity of UGV");
+        vHeader.setObjectName("PlotHeader");
+        hHeader = QLabel("Heading of UGV");
+        hHeader.setObjectName("PlotHeader");
+
         self.rLayout = QVBoxLayout();
-        self.rLayout.addWidget(QLabel("Velocity of UGV"));
+        self.rLayout.addWidget(vHeader);
         self.rLayout.addWidget(self.vPlot);
-        self.rLayout.addWidget(QLabel("Heading of UGV"));
+        self.rLayout.addWidget(hHeader);
         self.rLayout.addWidget(self.headPlot);
 
         self.pathPageLayout = QHBoxLayout();
@@ -232,6 +241,8 @@ class PathTab(QWidget):
         self.UGVData.clearData();
         self.posActCurve.setData([],[]);
         self.posExpCurve.setData([],[]);
+        self.posErrorPoints.setData([],[]);
+        self.posErrorPoints.setData([],[]);
         self.vActCurve.setData([],[]);
         self.vExpCurve.setData([],[]);
         self.headActCurve.setData([],[]);

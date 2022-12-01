@@ -3,11 +3,11 @@
 ## Setup
 Install Package
 
-```pip install PySide6```
+`pip install PySide6`
 
-```pip install pyqtgraph```
+`pip install pyqtgraph`
 
-```pip install numpy```
+`pip install numpy`
 
 ## Running GUI App
-```python main.py```
+`python main.py`

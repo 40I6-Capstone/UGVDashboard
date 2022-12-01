@@ -1,0 +1,29 @@
+QWidget {
+    background: #435058;
+}
+QTabBar::tab {
+    font: bold 12px;
+    background: #BFB7B6;
+    color: #435058;
+}
+QTabBar::tab:selected {
+    background: #DCF763;
+}
+QTabWidget::pane#MainTab {
+    border: 2px solid #DCF763;
+}
+QTabWidget::pane#SubPageTabs {
+    border-top: 2px solid #DCF763;
+}
+QPushButton {
+    background: #BFB7B6; color: #435058
+}
+QLabel#PlotHeader {
+    color: #DCF763;
+    font: bold 15px;
+}
+
+QLabel#Title {
+    color: #DCF763;
+    font: bold 20px;
+}
