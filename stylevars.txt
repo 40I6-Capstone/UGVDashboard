@@ -1,0 +1,5 @@
+@mainColour = #24292e = dark grey background
+@2colour = #00875a = main green
+@3colour = #383f45 = lighter grey background
+@4colour = #03DAC5 = 
+@white = #e5e7ea = very light grey

@@ -1,14 +1,13 @@
 import sys
 from PySide6.QtCore import Qt, Slot, Signal
-from PySide6.QtGui import QIcon, QPainter
 from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QTabWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel
-from PySide6.QtCharts import QChart, QChartView, QXYSeries, QLineSeries
 import pyqtgraph as pg
 
 import numpy
 import time
 import threading
 
+mainColour = "#24292e"
 class posArray:
     def __init__(self):
         self.x = [];
@@ -56,7 +55,14 @@ class UGVToolingBenchWindow(QMainWindow):
         self.setWindowTitle("UGV Dashboard");
         self.__main = QWidget();
         self.setCentralWidget(self.__main);
-        self.setStyleSheet(open('stylesheet.qss').read());
+        styleSheet = open('stylesheet.qss').read();
+        styleSheetVars = open('stylevars.txt');
+        lines = styleSheetVars.readlines();
+        for line in lines:
+            values = line.split("=");
+            styleSheet = styleSheet.replace(values[0].strip(), values[1].strip());
+        
+        self.setStyleSheet(styleSheet);
 
         self.connectButton = QPushButton();
         self.connectButton.clicked.connect(self.startConnection);
@@ -147,19 +153,30 @@ class PathTab(QWidget):
         parent.connectButton.setText("Connect");
 
         self.actPen = pg.mkPen(color=(255,0,0), width=5);
-        self.expPen = pg.mkPen(color=(0,0,255), width=5);
+        self.expPen = pg.mkPen(color=(0,244,0), width=5);
 
         self.posPlot = pg.PlotWidget();
-        self.posPlot.setBackground("#435058");
+        self.posPlot.setBackground(mainColour);
         self.posPlot.addLegend();
         self.posPlot.setLabel('left', 'Y position');
         self.posPlot.setLabel('bottom', 'X Position');
+        self.posPlot.showGrid(x=True,y=True);
 
-        self.posActCurve = self.posPlot.plot(parent.UGVData.posAct.x, parent.UGVData.posAct.y, name="Position Actual", pen=self.actPen);
-        self.posExpCurve = self.posPlot.plot(parent.UGVData.posExp.x, parent.UGVData.posExp.y, name="Position Expected", pen=self.expPen);
+        warmColourMap = pg.colormap.get("CET-C1");
+        coolColourMap = pg.colormap.get("CET-L2");
+
+        self.actPenGrad = warmColourMap.getPen(span=(0.0,30.0), width=5);
+        self.expPenGrad = coolColourMap.getPen(span=(0.0,30.0), width=5);
+
+        self.posActCurve = self.posPlot.plot(parent.UGVData.posAct.x, parent.UGVData.posAct.y, name="Position Actual", pen=self.actPenGrad);
+        self.posExpCurve = self.posPlot.plot(parent.UGVData.posExp.x, parent.UGVData.posExp.y, name="Position Expected", pen=self.expPenGrad);
 
         self.posCloud = pg.PlotWidget();
-        self.posCloud.setBackground("#435058");
+        self.posCloud.setBackground(mainColour);
+        self.posCloud.addLegend();
+        self.posCloud.setLabel('left', 'Y position');
+        self.posCloud.setLabel('bottom', 'X Position');
+        self.posCloud.showGrid(x=True,y=True);
 
         self.posActPoints = self.posCloud.plot(parent.UGVData.posAct.x, parent.UGVData.posAct.y, pen=None, symbol="+", symbolPen=self.actPen, symbolSize=5);
         self.posExpPoints = self.posCloud.plot(parent.UGVData.posExp.x, parent.UGVData.posExp.y, pen=None, symbol="+", symbolPen=self.expPen, symbolSize=5);
@@ -175,12 +192,24 @@ class PathTab(QWidget):
         self.lLayout.addWidget(self.clearDataButton);
 
         self.vPlot = pg.PlotWidget();
-        self.vPlot.setBackground("#435058");
+        self.vPlot.setBackground(mainColour);
+        self.vPlot.addLegend();
+        self.vPlot.setLabel('left', 'Velocity (m/s)');
+        self.vPlot.setLabel('bottom', 'Time (s)');
+        self.vPlot.showGrid(x=True,y=True);
+        self.vPlot.setMouseEnabled(x=False, y=True);
+
         self.vActCurve = self.vPlot.plot(parent.UGVData.vAct.t, parent.UGVData.vAct.data, pen=self.actPen);
         self.vExpCurve = self.vPlot.plot(parent.UGVData.vExp.t, parent.UGVData.vExp.data, pen=self.expPen);
 
         self.headPlot = pg.PlotWidget();
-        self.headPlot.setBackground("#435058");
+        self.headPlot.setBackground(mainColour);
+        self.headPlot.addLegend();
+        self.headPlot.setLabel('left', 'Heading (deg)');
+        self.headPlot.setLabel('bottom', 'Time (s)');
+        self.headPlot.showGrid(x=True,y=True);
+        self.headPlot.setMouseEnabled(x=False, y=True);
+
         self.headActCurve = self.headPlot.plot(parent.UGVData.headAct.t, parent.UGVData.headAct.data, pen=self.actPen);
         self.headExpCurve = self.headPlot.plot(parent.UGVData.headExp.t, parent.UGVData.headExp.data, pen=self.expPen);
 
