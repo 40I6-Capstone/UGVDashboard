@@ -25,7 +25,6 @@ class UGVData:
     def __init__(self):
         self.posAct = posArray();
         self.posExp = posArray();
-        self.posError = posArray();
         self.vAct = dataArray();
         self.vExp = dataArray();
         self.headAct = dataArray();
@@ -44,47 +43,9 @@ def truncateData(dataSet:dataArray):
         dataSet.t = dataSet.t[1:];
         dataSet.data = dataSet.data[1:];
 
-def calculateActPosition(data:UGVData):
-    if(len(data.vAct.t)==1):
-        data.posAct.t.append(data.vAct.t[0]);
-        data.posAct.x.append(0);
-        data.posAct.y.append(0);
-    else:
-        t1 = data.vAct.t[-1];
-        t2 = data.vAct.t[-2];
-        vx1 = data.vAct.data[-1]*numpy.cos(data.headAct.data[-1]*numpy.pi/180);
-        vx2 = data.vAct.data[-2]*numpy.cos(data.headAct.data[-2]*numpy.pi/180);
-        vy1 = data.vAct.data[-1]*numpy.sin(data.headAct.data[-1]*numpy.pi/180);
-        vy2 = data.vAct.data[-2]*numpy.sin(data.headAct.data[-2]*numpy.pi/180);
-        posX = data.posAct.x[-1] + numpy.abs(vx1-vx2)*(t1-t2)/2 + numpy.min([vx1, vx2])*(t1-t2);
-        posY = data.posAct.y[-1] + numpy.abs(vy1-vy2)*(t1-t2)/2 + numpy.min([vy1, vy2])*(t1-t2);
-        data.posAct.t.append(t1);
-        data.posAct.x.append(posX);
-        data.posAct.y.append(posY);
-
-def calculateExpPosition(data:UGVData):
-    if(len(data.vExp.t)==1):
-        data.posExp.t.append(data.vAct.t[0]);
-        data.posExp.x.append(0);
-        data.posExp.y.append(0);
-    else:
-        t1 = data.vExp.t[-1];
-        t2 = data.vExp.t[-2];
-        vx1 = data.vExp.data[-1]*numpy.cos(data.headExp.data[-1]*numpy.pi/180);
-        vx2 = data.vExp.data[-2]*numpy.cos(data.headExp.data[-2]*numpy.pi/180);
-        vy1 = data.vExp.data[-1]*numpy.sin(data.headExp.data[-1]*numpy.pi/180);
-        vy2 = data.vExp.data[-2]*numpy.sin(data.headExp.data[-2]*numpy.pi/180);
-        posX = data.posExp.x[-1] + numpy.abs(vx1-vx2)*(t1-t2)/2 + numpy.min([vx1, vx2])*(t1-t2);
-        posY = data.posExp.y[-1] + numpy.abs(vy1-vy2)*(t1-t2)/2 + numpy.min([vy1, vy2])*(t1-t2);
-        data.posExp.t.append(t1);
-        data.posExp.x.append(posX);
-        data.posExp.y.append(posY);
-    
-
-
 class UGVToolingBenchWindow(QMainWindow):
-    posActSignal = Signal();
-    posExpSignal = Signal();
+    posActSignal = Signal(str);
+    posExpSignal = Signal(str);
     vActSignal = Signal(str);
     vExpSignal = Signal(str);
     headActSignal = Signal(str);
@@ -95,7 +56,7 @@ class UGVToolingBenchWindow(QMainWindow):
         self.setWindowTitle("UGV Dashboard");
         self.__main = QWidget();
         self.setCentralWidget(self.__main);
-        self.setStyleSheet(open('stylesheet.css').read());
+        self.setStyleSheet(open('stylesheet.qss').read());
 
         self.connectButton = QPushButton();
         self.connectButton.clicked.connect(self.startConnection);
@@ -148,6 +109,8 @@ class UGVToolingBenchWindow(QMainWindow):
     def connectAndPoll(self):
         vHeadActFile = open("velocity_heading_actual.csv", "r");
         vHeadExpFile = open("velocity_heading_expected.csv", "r");
+        posActFile = open("position_actual.csv", "r");
+        posExpFile = open("position_expected.csv", "r");
         while(self.connectionActive):
             vHAct = vHeadActFile.readline();
             vHAct = vHAct.split(',');
@@ -159,6 +122,14 @@ class UGVToolingBenchWindow(QMainWindow):
             if(len(vHExp)>2):
                 self.vExpSignal.emit(vHExp[0]+","+vHExp[1]);
                 self.headExpSignal.emit(vHExp[0]+","+vHExp[2]);
+            posAct = posActFile.readline();
+            posAct = posAct.split(',');
+            if(len(posAct)>2):
+                self.posActSignal.emit(posAct[0]+","+posAct[1]+","+posAct[2]);
+            posExp = posExpFile.readline();
+            posExp = posExp.split(',');
+            if(len(posExp)>2):
+                self.posExpSignal.emit(posExp[0]+","+posExp[1]+","+posExp[2]);
 
             time.sleep(1);
             
@@ -180,19 +151,23 @@ class PathTab(QWidget):
 
         self.posPlot = pg.PlotWidget();
         self.posPlot.setBackground("#435058");
+        self.posPlot.addLegend();
+        self.posPlot.setLabel('left', 'Y position');
+        self.posPlot.setLabel('bottom', 'X Position');
 
-        self.posActCurve = self.posPlot.plot(parent.UGVData.posAct.x, parent.UGVData.posAct.y, pen=self.actPen);
-        self.posExpCurve = self.posPlot.plot(parent.UGVData.posExp.x, parent.UGVData.posExp.y, pen=self.expPen);
+        self.posActCurve = self.posPlot.plot(parent.UGVData.posAct.x, parent.UGVData.posAct.y, name="Position Actual", pen=self.actPen);
+        self.posExpCurve = self.posPlot.plot(parent.UGVData.posExp.x, parent.UGVData.posExp.y, name="Position Expected", pen=self.expPen);
 
-        self.posErrorCloud = pg.PlotWidget();
-        self.posErrorCloud.setBackground("#435058");
+        self.posCloud = pg.PlotWidget();
+        self.posCloud.setBackground("#435058");
 
-        self.posErrorPoints = self.posErrorCloud.plot(parent.UGVData.posError.x, parent.UGVData.posError.y, pen=None, symbol="o", symbolPen=self.actPen, symbolSize=2);
+        self.posActPoints = self.posCloud.plot(parent.UGVData.posAct.x, parent.UGVData.posAct.y, pen=None, symbol="+", symbolPen=self.actPen, symbolSize=5);
+        self.posExpPoints = self.posCloud.plot(parent.UGVData.posExp.x, parent.UGVData.posExp.y, pen=None, symbol="+", symbolPen=self.expPen, symbolSize=5);
 
         self.plotTabs = QTabWidget();
         self.plotTabs.setObjectName("SubPageTabs")
         self.plotTabs.addTab(self.posPlot, "UGV Position Path");
-        self.plotTabs.addTab(self.posErrorCloud, "UGV Position Cloud");
+        self.plotTabs.addTab(self.posCloud, "UGV Position Cloud");
 
         self.lLayout = QVBoxLayout();
         self.lLayout.addWidget(parent.connectButton);
@@ -225,9 +200,6 @@ class PathTab(QWidget):
         self.pathPageLayout.addLayout(self.rLayout, 50);
 
         self.setLayout(self.pathPageLayout);
-    
-        self.posActSignal = parent.posActSignal;
-        self.posExpSignal = parent.posExpSignal;
 
         parent.posActSignal.connect(self.addPointToPathAct);
         parent.posExpSignal.connect(self.addPointToPathExp);
@@ -239,34 +211,32 @@ class PathTab(QWidget):
     @Slot()
     def clearData(self):
         self.UGVData.clearData();
-        self.posActCurve.setData([],[]);
-        self.posExpCurve.setData([],[]);
-        self.posErrorPoints.setData([],[]);
-        self.posErrorPoints.setData([],[]);
+        self.posActPoints.setData([],[]);
+        self.posExpPoints.setData([],[]);
         self.vActCurve.setData([],[]);
         self.vExpCurve.setData([],[]);
         self.headActCurve.setData([],[]);
         self.headExpCurve.setData([],[]);
 
-    @Slot()
-    def addPointToPathAct(self):
-        self.posActCurve.setData(self.UGVData.posAct.x, self.UGVData.posAct.y);
-        if(self.UGVData.posAct.t[-1] in self.UGVData.posExp.t):
-            i = self.UGVData.posExp.t.index(self.UGVData.posAct.t[-1]);
-            self.UGVData.posError.t.append(self.UGVData.posAct.t[-1]);
-            self.UGVData.posError.x.append(self.UGVData.posAct.x[-1] - self.UGVData.posExp.x[i]);
-            self.UGVData.posError.y.append(self.UGVData.posAct.y[-1] - self.UGVData.posExp.y[i]);
-            self.posErrorPoints.setData(self.UGVData.posError.x, self.UGVData.posError.y);
-
-    @Slot()
-    def addPointToPathExp(self):
-        self.posExpCurve.setData(self.UGVData.posExp.x, self.UGVData.posExp.y);
-        if(self.UGVData.posExp.t[-1] in self.UGVData.posAct.t):
-            i = self.UGVData.posAct.t.index(self.UGVData.posExp.t[-1]);
-            self.UGVData.posError.t.append(self.UGVData.posExp.t[-1]);
-            self.UGVData.posError.x.append(self.UGVData.posAct.x[i] - self.UGVData.posExp.x[-1]);
-            self.UGVData.posError.y.append(self.UGVData.posAct.y[i] - self.UGVData.posExp.y[-1]);
-            self.posErrorPoints.setData(self.UGVData.posError.x, self.UGVData.posError.y);
+    @Slot(str)
+    def addPointToPathAct(self, value):
+        valArray = value.split(',');
+        if(len(valArray) > 1):
+            self.UGVData.posAct.t.append(float(valArray[0]));
+            self.UGVData.posAct.x.append(float(valArray[1]));
+            self.UGVData.posAct.y.append(float(valArray[2]));
+            self.posActCurve.setData(self.UGVData.posAct.x, self.UGVData.posAct.y);
+            self.posActPoints.setData(self.UGVData.posAct.x, self.UGVData.posAct.y);
+    
+    @Slot(str)
+    def addPointToPathExp(self, value):
+        valArray = value.split(',');
+        if(len(valArray) > 1):
+            self.UGVData.posExp.t.append(float(valArray[0]));
+            self.UGVData.posExp.x.append(float(valArray[1]));
+            self.UGVData.posExp.y.append(float(valArray[2]));
+            self.posExpCurve.setData(self.UGVData.posExp.x, self.UGVData.posExp.y);
+            self.posExpPoints.setData(self.UGVData.posExp.x, self.UGVData.posExp.y);
 
     @Slot(str)
     def addPointToVAct(self, value):
@@ -294,8 +264,6 @@ class PathTab(QWidget):
             self.UGVData.headAct.data.append(float(valArray[1]));
             truncateData(self.UGVData.headAct);
             self.headActCurve.setData(self.UGVData.headAct.t, self.UGVData.headAct.data);
-            calculateActPosition(self.UGVData);
-            self.posActSignal.emit();
 
     
     @Slot(str)
@@ -306,8 +274,6 @@ class PathTab(QWidget):
             self.UGVData.headExp.data.append(float(valArray[1]));
             truncateData(self.UGVData.headExp);
             self.headExpCurve.setData(self.UGVData.headExp.t, self.UGVData.headExp.data);
-            calculateExpPosition(self.UGVData);
-            self.posExpSignal.emit();
 
             
 

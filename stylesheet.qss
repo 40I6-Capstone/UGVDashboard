@@ -16,7 +16,8 @@ QTabWidget::pane#SubPageTabs {
     border-top: 2px solid #DCF763;
 }
 QPushButton {
-    background: #BFB7B6; color: #435058
+    background: #BFB7B6;
+    color: #435058;
 }
 QLabel#PlotHeader {
     color: #DCF763;
