@@ -24,6 +24,20 @@ QLabel#PlotHeader {
     color: @2colour;
     font: bold 15px;
 }
+QLabel#PlainText {
+    color: @white;
+}
+QLabel#SettingLabel {
+    color: @2colour;
+    font: bold 12px;
+}
+QCheckBox {
+    color: @2colour;
+    font: bold 12px;  
+}
+QSpinBox {
+    color: @white;
+}
 
 QLabel#Title {
     color: @2colour;

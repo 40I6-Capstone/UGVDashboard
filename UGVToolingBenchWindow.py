@@ -1,6 +1,8 @@
-from PySide6.QtCore import Slot, Signal
+from PySide6.QtCore import Qt, Slot, Signal
 from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QMainWindow, QWidget, QTabWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel
+from PySide6.QtWidgets import (QMainWindow, QWidget, QTabWidget, QVBoxLayout, QHBoxLayout, 
+                                QPushButton, QLabel, QDialog, QDialogButtonBox, QSlider, QCheckBox,
+                                QSpinBox, QSpacerItem)
 import pyqtgraph as pg
 import numpy as np
 import time
@@ -52,10 +54,16 @@ class UGVData:
             self.headAct = dataArray();
             self.headExp = dataArray();
     
-def truncateData(dataSet:dataArray):
-    if(dataSet.t[-1]-dataSet.t[0]>10):
-        dataSet.t = dataSet.t[1:];
-        dataSet.data = dataSet.data[1:];
+def truncateData(dataSet:dataArray, maxPoints):
+    if(len(dataSet.t)>maxPoints):
+        dataSet.t = dataSet.t[-maxPoints:];
+        dataSet.data = dataSet.data[-maxPoints:];
+
+def truncatePos(dataSet:posArray, maxPoints):
+    if(len(dataSet.t)>maxPoints):
+        dataSet.t = dataSet.t[-maxPoints:];
+        dataSet.x = dataSet.x[-maxPoints:];
+        dataSet.y = dataSet.y[-maxPoints:];
 
 class UGVToolingBenchWindow(QMainWindow):
     posActSignal = Signal(str);
@@ -172,17 +180,20 @@ class PathTab(QWidget):
         self.settingsButton = QPushButton();
         icon = QIcon("./assets/settings.svg");
         self.settingsButton.setIcon(icon);
+        self.settingsButton.clicked.connect(self.openSettings)
 
         buttonsLayout = QHBoxLayout();
         buttonsLayout.addWidget(parent.connectButton, 85);
-        buttonsLayout.addWidget(self.settingsButton, 15)
+        buttonsLayout.addWidget(self.settingsButton, 15);
 
-        self.actPosPen = pg.mkPen(color=(100,0,0), width=5);
-        self.expPosPen = pg.mkPen(color=(0,0, 255), width=5);
+        self.plotItemWidth = 5;
+        self.symbolHasOutline = False;
+        self.actPosPen = pg.mkPen(color=(100,0,0), width=self.plotItemWidth);
+        self.expPosPen = pg.mkPen(color=(0,0, 255), width=self.plotItemWidth);
         self.outlinePen = pg.mkPen(color=(255,255,255), width=1.5);
 
-        self.actPen = pg.mkPen(color=(255,0,0), width=5);
-        self.expPen = pg.mkPen(color=(0,255, 255), width=5);
+        self.actPen = pg.mkPen(color=(255,0,0), width=self.plotItemWidth);
+        self.expPen = pg.mkPen(color=(0,255, 255), width=self.plotItemWidth);
 
         self.posPlot = pg.PlotWidget();
         self.posPlot.setBackground(mainColour);
@@ -196,8 +207,8 @@ class PathTab(QWidget):
         coolColourMap = pg.colormap.getFromMatplotlib("cool");
         self.coolColourMapTable = coolColourMap.getLookupTable(0, 1, 101);
 
-        self.posExpCurve = self.posPlot.plot(parent.UGVData.posExp.x, parent.UGVData.posExp.y, name="Position Expected", pen=self.expPosPen, symbol="+", symbolPen=None, symbolSize=15);
-        self.posActCurve = self.posPlot.plot(parent.UGVData.posAct.x, parent.UGVData.posAct.y, name="Position Actual", pen=self.actPosPen, symbol="+", symbolPen=None, symbolSize=15);
+        self.posExpCurve = self.posPlot.plot(parent.UGVData.posExp.x, parent.UGVData.posExp.y, name="Position Expected", pen=self.expPosPen, symbol="+", symbolPen=None, symbolSize=self.plotItemWidth*3);
+        self.posActCurve = self.posPlot.plot(parent.UGVData.posAct.x, parent.UGVData.posAct.y, name="Position Actual", pen=self.actPosPen, symbol="+", symbolPen=None, symbolSize=self.plotItemWidth*3);
 
         pathHeader = QLabel("Path of UGV");
         pathHeader.setObjectName("PlotHeader");
@@ -254,11 +265,116 @@ class PathTab(QWidget):
         parent.headActSignal.connect(self.addPointToHeadAct);
         parent.headExpSignal.connect(self.addPointToHeadExp);
 
+
+        self.maxPoints = 10;
+
+        self.settingsWin = QDialog(self);
+        self.settingsWin.setWindowTitle("Settings for Path Plots");
+
+        self.addSymbolOutline = QCheckBox("Add outline to plot symbols");
+        self.addSymbolOutline.setChecked(self.symbolHasOutline);
+
+        self.widthSlider = QSlider(minimum=1, maximum=10, orientation=Qt.Horizontal);
+        self.widthSlider.setSliderPosition(self.plotItemWidth);
+        minLabel = QLabel("1");
+        minLabel.setObjectName("PlainText");
+        maxLabel = QLabel("10");
+        maxLabel.setObjectName("PlainText");
+        self.widthSliderLayout = QHBoxLayout();
+        self.widthSliderLayout.addWidget(minLabel);
+        self.widthSliderLayout.addWidget(self.widthSlider);
+        self.widthSliderLayout.addWidget(maxLabel);
+        widthSliderLabel = QLabel("Set size of plot lines/symbols");
+        widthSliderLabel.setObjectName("SettingLabel");
+
+        self.setMaxPoints = QSpinBox(minimum=2);
+        self.setMaxPoints.setValue(self.maxPoints);
+        maxPointLabel = QLabel("Set the maximum points to save");
+        maxPointLabel.setObjectName("SettingLabel");        
+
+        infoText = QLabel("*Changes will only affect position, UGV velocity, and heading plots");
+        infoText.setObjectName("PlainText"); 
+
+        QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel;
+        self.settingsBtnBox = QDialogButtonBox(QBtn);
+        self.settingsBtnBox.accepted.connect(self.settingsWin.accept);
+        self.settingsBtnBox.rejected.connect(self.settingsWin.reject);
+        self.settingsLayout = QVBoxLayout();
+        self.settingsLayout.addWidget(self.addSymbolOutline);
+        self.settingsLayout.addSpacing(20);
+        self.settingsLayout.addWidget(widthSliderLabel);
+        self.settingsLayout.addLayout(self.widthSliderLayout);
+        self.settingsLayout.addSpacing(20);
+        self.settingsLayout.addWidget(maxPointLabel);
+        self.settingsLayout.addWidget(self.setMaxPoints);
+        self.settingsLayout.addWidget(infoText);
+        self.settingsLayout.addSpacing(20);
+        self.settingsLayout.addWidget(self.settingsBtnBox);
+        self.settingsWin.setLayout(self.settingsLayout);
+
+    def updateWidth(self, width):
+        self.plotItemWidth = width;
+        self.actPen.setWidth(width);
+        self.expPen.setWidth(width);
+        self.actPosPen.setWidth(width);
+        self.expPosPen.setWidth(width);
+        self.posActCurve.setSymbolSize(width+10);
+        self.posExpCurve.setSymbolSize(width+10);
+
+    def updateScatterOutline(self, hasOutline):
+        self.symbolHasOutline = hasOutline;
+        if(hasOutline):
+            self.posActCurve.setSymbolPen(self.outlinePen);
+            self.posExpCurve.setSymbolPen(self.outlinePen);
+        else:
+            self.posActCurve.setSymbolPen(None);
+            self.posExpCurve.setSymbolPen(None);
+
+    def updateMaxPoints(self, maxPoints):
+        if(self.maxPoints > maxPoints):
+            truncatePos(self.UGVData.posAct, maxPoints);
+            linspace = np.linspace(0, 100, len(self.UGVData.posAct.t)-1).astype(int);
+            brushes = self.warmColourMapTable[linspace];
+            brushes = np.append(brushes, [[255,255,255]], axis=0);
+            self.posActCurve.setData(self.UGVData.posAct.x, self.UGVData.posAct.y, symbolBrush=brushes);
+            truncatePos(self.UGVData.posExp, maxPoints);
+            linspace = np.linspace(0, 100, len(self.UGVData.posExp.t)-1).astype(int);
+            brushes = self.coolColourMapTable[linspace];
+            brushes = np.append(brushes, [[255,255,255]], axis=0);
+            self.posExpCurve.setData(self.UGVData.posExp.x, self.UGVData.posExp.y, symbolBrush=brushes);
+            truncateData(self.UGVData.vAct, maxPoints);
+            self.vActCurve.setData(self.UGVData.vAct.t, self.UGVData.vAct.data);
+            truncateData(self.UGVData.vExp, maxPoints);
+            self.vExpCurve.setData(self.UGVData.vExp.t, self.UGVData.vExp.data);
+            truncateData(self.UGVData.headAct, maxPoints);
+            self.headActCurve.setData(self.UGVData.headAct.t, self.UGVData.headAct.data);
+            truncateData(self.UGVData.headExp, maxPoints);
+            self.headExpCurve.setData(self.UGVData.headExp.t, self.UGVData.headExp.data);
+        self.maxPoints = maxPoints;
+        
+    @Slot()
+    def openSettings(self):
+        if self.settingsWin.exec_():
+            self.updateSettings();
+    @Slot()
+    def updateSettings(self):
+        width = self.widthSlider.value();
+        if(width != self.plotItemWidth):
+            self.updateWidth(width);
+
+        isAddingOutline = self.addSymbolOutline.isChecked();
+        if(isAddingOutline != self.symbolHasOutline):
+            self.updateScatterOutline(isAddingOutline);
+        
+        maxPoints = self.setMaxPoints.value();
+        if(maxPoints != self.maxPoints):
+            self.updateMaxPoints(maxPoints);
+
     @Slot()
     def clearData(self):
         self.UGVData.clearData('default');
-        self.posActPoints.setData([],[]);
-        self.posExpPoints.setData([],[]);
+        self.posActCurve.setData([],[]);
+        self.posExpCurve.setData([],[]);
         self.vActCurve.setData([],[]);
         self.vExpCurve.setData([],[]);
         self.headActCurve.setData([],[]);
@@ -271,6 +387,7 @@ class PathTab(QWidget):
             self.UGVData.posAct.t.append(float(valArray[0]));
             self.UGVData.posAct.x.append(float(valArray[1]));
             self.UGVData.posAct.y.append(float(valArray[2]));
+            truncatePos(self.UGVData.posAct, self.maxPoints);
             linspace = np.linspace(0, 100, len(self.UGVData.posAct.t)-1).astype(int);
             brushes = self.warmColourMapTable[linspace];
             brushes = np.append(brushes, [[255,255,255]], axis=0);
@@ -283,6 +400,7 @@ class PathTab(QWidget):
             self.UGVData.posExp.t.append(float(valArray[0]));
             self.UGVData.posExp.x.append(float(valArray[1]));
             self.UGVData.posExp.y.append(float(valArray[2]));
+            truncatePos(self.UGVData.posExp, self.maxPoints);
             linspace = np.linspace(0, 100, len(self.UGVData.posExp.t)-1).astype(int);
             brushes = self.coolColourMapTable[linspace];
             brushes = np.append(brushes, [[255,255,255]], axis=0);
@@ -294,7 +412,7 @@ class PathTab(QWidget):
         if(len(valArray) > 1):
             self.UGVData.vAct.t.append(float(valArray[0]));
             self.UGVData.vAct.data.append(float(valArray[1]));
-            truncateData(self.UGVData.vAct);
+            truncateData(self.UGVData.vAct, self.maxPoints);
             self.vActCurve.setData(self.UGVData.vAct.t, self.UGVData.vAct.data);
     
     @Slot(str)
@@ -303,7 +421,7 @@ class PathTab(QWidget):
         if(len(valArray) > 1):
             self.UGVData.vExp.t.append(float(valArray[0]));
             self.UGVData.vExp.data.append(float(valArray[1]));
-            truncateData(self.UGVData.vExp);
+            truncateData(self.UGVData.vExp, self.maxPoints);
             self.vExpCurve.setData(self.UGVData.vExp.t, self.UGVData.vExp.data);
 
     @Slot(str)
@@ -312,7 +430,7 @@ class PathTab(QWidget):
         if(len(valArray) > 1):
             self.UGVData.headAct.t.append(float(valArray[0]));
             self.UGVData.headAct.data.append(float(valArray[1]));
-            truncateData(self.UGVData.headAct);
+            truncateData(self.UGVData.headAct, self.maxPoints);
             self.headActCurve.setData(self.UGVData.headAct.t, self.UGVData.headAct.data);
 
     
@@ -322,7 +440,7 @@ class PathTab(QWidget):
         if(len(valArray) > 1):
             self.UGVData.headExp.t.append(float(valArray[0]));
             self.UGVData.headExp.data.append(float(valArray[1]));
-            truncateData(self.UGVData.headExp);
+            truncateData(self.UGVData.headExp, self.maxPoints);
             self.headExpCurve.setData(self.UGVData.headExp.t, self.UGVData.headExp.data);
 
 
@@ -336,9 +454,21 @@ class MotorTab(QWidget):
         self.clearDataButton.setText("Clear Data");
         self.clearDataButton.clicked.connect(self.clearData);
 
-        self.rightPen = pg.mkPen(color=(255,0,0), width=5);
-        self.leftPen = pg.mkPen(color=(0,255, 255), width=5);
-        self.avgPen = pg.mkPen(color=(255,255, 255), width=5);
+        
+        self.settingsButton = QPushButton();
+        icon = QIcon("./assets/settings.svg");
+        self.settingsButton.setIcon(icon);
+        self.settingsButton.clicked.connect(self.openSettings)
+
+
+        buttonsLayout = QHBoxLayout();
+        buttonsLayout.addWidget(self.clearDataButton, 85);
+        buttonsLayout.addWidget(self.settingsButton, 15);
+
+        self.plotItemWidth = 5;
+        self.rightPen = pg.mkPen(color=(255,0,0), width=self.plotItemWidth);
+        self.leftPen = pg.mkPen(color=(0,255, 255), width=self.plotItemWidth);
+        self.avgPen = pg.mkPen(color=(255,255, 255), width=self.plotItemWidth);
 
         self.vPlot = pg.PlotWidget();
         self.vPlot.setBackground(mainColour);
@@ -371,8 +501,8 @@ class MotorTab(QWidget):
         self.plotTabs.addTab(self.distPlot, "Motor Distance Traveled");
 
         self.pathPageLayout = QVBoxLayout();
+        self.pathPageLayout.addLayout(buttonsLayout);
         self.pathPageLayout.addWidget(self.plotTabs);
-        self.pathPageLayout.addWidget(self.clearDataButton);
 
         self.setLayout(self.pathPageLayout);
 
@@ -382,6 +512,84 @@ class MotorTab(QWidget):
         parent.dAverageSignal.connect(self.addPointToDAvg);
         parent.dRightSignal.connect(self.addPointToDRight);
         parent.dLeftSignal.connect(self.addPointToDLeft);
+
+        
+        self.maxPoints = 10;
+
+        self.settingsWin = QDialog(self);
+        self.settingsWin.setWindowTitle("Settings for Motor Plots");
+
+        self.widthSlider = QSlider(minimum=1, maximum=10, orientation=Qt.Horizontal);
+        self.widthSlider.setSliderPosition(self.plotItemWidth);
+        minLabel = QLabel("1");
+        minLabel.setObjectName("PlainText");
+        maxLabel = QLabel("10");
+        maxLabel.setObjectName("PlainText");
+        self.widthSliderLayout = QHBoxLayout();
+        self.widthSliderLayout.addWidget(minLabel);
+        self.widthSliderLayout.addWidget(self.widthSlider);
+        self.widthSliderLayout.addWidget(maxLabel);
+        widthSliderLabel = QLabel("Set size of plot lines/symbols");
+        widthSliderLabel.setObjectName("SettingLabel");
+
+        self.setMaxPoints = QSpinBox(minimum=2);
+        self.setMaxPoints.setValue(self.maxPoints);
+        maxPointLabel = QLabel("Set the maximum points to save");
+        maxPointLabel.setObjectName("SettingLabel");
+
+        infoText = QLabel("*Changes will only affect motor plots");
+        infoText.setObjectName("PlainText");        
+
+        QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel;
+        self.settingsBtnBox = QDialogButtonBox(QBtn);
+        self.settingsBtnBox.accepted.connect(self.settingsWin.accept);
+        self.settingsBtnBox.rejected.connect(self.settingsWin.reject);
+        self.settingsLayout = QVBoxLayout();
+        self.settingsLayout.addWidget(widthSliderLabel);
+        self.settingsLayout.addLayout(self.widthSliderLayout);
+        self.settingsLayout.addSpacing(20);
+        self.settingsLayout.addWidget(maxPointLabel);
+        self.settingsLayout.addWidget(self.setMaxPoints);
+        self.settingsLayout.addWidget(infoText);
+        self.settingsLayout.addSpacing(20);
+        self.settingsLayout.addWidget(self.settingsBtnBox);
+        self.settingsWin.setLayout(self.settingsLayout);
+
+    def updateWidth(self, width):
+        self.plotItemWidth = width;
+        self.avgPen.setWidth(width);
+        self.rightPen.setWidth(width);
+        self.leftPen.setWidth(width);
+
+    def updateMaxPoints(self, maxPoints):
+        if(self.maxPoints > maxPoints):            
+            truncateData(self.UGVData.vAvg, maxPoints);
+            self.vAvgCurve.setData(self.UGVData.vAvg.t, self.UGVData.vAvg.data);
+            truncateData(self.UGVData.vRight, maxPoints);
+            self.vRightCurve.setData(self.UGVData.vRight.t, self.UGVData.vRight.data);
+            truncateData(self.UGVData.vLeft, maxPoints);
+            self.vLeftCurve.setData(self.UGVData.vLeft.t, self.UGVData.vLeft.data);
+            truncateData(self.UGVData.dAvg, maxPoints);
+            self.dAvgCurve.setData(self.UGVData.dAvg.t, self.UGVData.dAvg.data);
+            truncateData(self.UGVData.dRight, maxPoints);
+            self.dRightCurve.setData(self.UGVData.dRight.t, self.UGVData.dRight.data);
+            truncateData(self.UGVData.dLeft, maxPoints);
+            self.dLeftCurve.setData(self.UGVData.dLeft.t, self.UGVData.dLeft.data);
+        self.maxPoints = maxPoints;
+        
+    @Slot()
+    def openSettings(self):
+        if self.settingsWin.exec_():
+            self.updateSettings();
+    @Slot()
+    def updateSettings(self):
+        width = self.widthSlider.value();
+        if(width != self.plotItemWidth):
+            self.updateWidth(width);
+        
+        maxPoints = self.setMaxPoints.value();
+        if(maxPoints != self.maxPoints):
+            self.updateMaxPoints(maxPoints);
 
     @Slot()
     def clearData(self):
