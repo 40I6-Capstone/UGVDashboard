@@ -271,8 +271,13 @@ class PathTab(QWidget):
         self.settingsWin = QDialog(self);
         self.settingsWin.setWindowTitle("Settings for Path Plots");
 
-        self.addSymbolOutline = QCheckBox("Add outline to plot symbols");
+        self.addSymbolOutline = QCheckBox();
         self.addSymbolOutline.setChecked(self.symbolHasOutline);
+        addSymbolOutlineLabel = QLabel("Add outline to plot symbols");
+        addSymbolOutlineLabel.setObjectName("SettingLabel");
+        self.addSymbolOutlineLayout = QHBoxLayout();
+        self.addSymbolOutlineLayout.addWidget(addSymbolOutlineLabel);
+        self.addSymbolOutlineLayout.addWidget(self.addSymbolOutline);
 
         self.widthSlider = QSlider(minimum=1, maximum=10, orientation=Qt.Horizontal);
         self.widthSlider.setSliderPosition(self.plotItemWidth);
@@ -292,7 +297,7 @@ class PathTab(QWidget):
         maxPointLabel = QLabel("Set the maximum points to save");
         maxPointLabel.setObjectName("SettingLabel");        
 
-        infoText = QLabel("*Changes will only affect position, UGV velocity, and heading plots");
+        infoText = QLabel("*Changes will only affect UGV position, velocity, and heading plots");
         infoText.setObjectName("PlainText"); 
 
         QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel;
@@ -300,7 +305,7 @@ class PathTab(QWidget):
         self.settingsBtnBox.accepted.connect(self.settingsWin.accept);
         self.settingsBtnBox.rejected.connect(self.settingsWin.reject);
         self.settingsLayout = QVBoxLayout();
-        self.settingsLayout.addWidget(self.addSymbolOutline);
+        self.settingsLayout.addLayout(self.addSymbolOutlineLayout);
         self.settingsLayout.addSpacing(20);
         self.settingsLayout.addWidget(widthSliderLabel);
         self.settingsLayout.addLayout(self.widthSliderLayout);
@@ -537,7 +542,7 @@ class MotorTab(QWidget):
         maxPointLabel = QLabel("Set the maximum points to save");
         maxPointLabel.setObjectName("SettingLabel");
 
-        infoText = QLabel("*Changes will only affect motor plots");
+        infoText = QLabel("*Changes will only affect motor velocity and distance plots");
         infoText.setObjectName("PlainText");        
 
         QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel;
